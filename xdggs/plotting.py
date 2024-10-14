@@ -5,7 +5,7 @@ def create_arrow_table(polygons, arr, coords=None):
     from arro3.core import Array, ChunkedArray, Schema, Table
 
     if coords is None:
-        coords = ["latitude", "longitude"]
+        coords = ["cell_ids", "latitude", "longitude"]
 
     array = Array.from_arrow(polygons)
     name = arr.name or "data"
