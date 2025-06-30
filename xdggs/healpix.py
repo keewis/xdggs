@@ -346,7 +346,7 @@ def construct_chunk_ranges(chunks, until):
 
 
 def subset_chunks(chunks, indexer):
-    def _subset(offset, chunk, indexer):
+    def _subset_slice(offset, chunk, indexer):
         if offset >= indexer.stop or offset + chunk < indexer.start:
             # outside slice
             return 0
@@ -366,15 +366,28 @@ def subset_chunks(chunks, indexer):
 
             return chunk - left_trim - right_trim
 
+    def _subset_array(offset, chunk, indexer):
+        mask = (indexer >= offset) & (indexer < offset + chunk)
+
+        return np.sum(mask.astype(int))
+
+    def _subset(offset, chunk, indexer):
+        if isinstance(indexer, slice):
+            return _subset_slice(offset, chunk, indexer)
+        else:
+            return _subset_array(offset, chunk, indexer)
+
     if chunks is None:
         return None
 
     chunk_offsets = np.cumulative_sum(chunks, include_initial=True)
     total_length = chunk_offsets[-1]
-    concrete_slice = slice(*indexer.indices(total_length))
+
+    if isinstance(indexer, slice):
+        indexer = slice(*indexer.indices(total_length))
 
     trimmed_chunks = tuple(
-        _subset(offset, chunk, concrete_slice)
+        _subset(offset, chunk, indexer)
         for offset, chunk in zip(chunk_offsets[:-1], chunks)
     )
 
@@ -577,6 +590,16 @@ class HealpixMocIndex(xr.Index):
             A new Index object or ``None``.
         """
         indexer = indexers[self._dim]
+        if isinstance(indexer, np.ndarray):
+            if np.isdtype(indexer.dtype, "signed integer"):
+                indexer = np.where(indexer >= 0, indexer, self.size + indexer).astype(
+                    "uint64"
+                )
+            elif np.isdtype(indexer.dtype, "unsigned integer"):
+                indexer = indexer.astype("uint64")
+            else:
+                raise ValueError("can only index with integer arrays or slices")
+
         new_chunksizes = {
             self._dim: subset_chunks(self._chunksizes[self._dim], indexer)
         }
