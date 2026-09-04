@@ -164,6 +164,12 @@ class HealpixMocIndex(xr.Index):
         if array.ndim != 1:
             raise ValueError("only 1D cell ids are supported")
 
+        ellipsoid = grid_info.ellipsoid
+        if ellipsoid is None:
+            import healpix_geo.ellipsoid
+
+            ellipsoid = healpix_geo.ellipsoid.resolve("sphere")
+
         if array.size == 12 * 4**grid_info.level:
             index = RangeMOCIndex.full_domain(grid_info.level)
         elif isinstance(array, dask_array_type):
@@ -172,12 +178,16 @@ class HealpixMocIndex(xr.Index):
             import dask
 
             [indexes] = dask.compute(
-                dask.delayed(RangeMOCIndex.from_cell_ids)(grid_info.level, chunk)
+                dask.delayed(RangeMOCIndex.from_cell_ids)(
+                    grid_info.level, chunk, ellipsoid=ellipsoid
+                )
                 for chunk in array.astype("uint64").to_delayed()
             )
             index = reduce(RangeMOCIndex.union, indexes)
         else:
-            index = RangeMOCIndex.from_cell_ids(grid_info.level, array.astype("uint64"))
+            index = RangeMOCIndex.from_cell_ids(
+                grid_info.level, array.astype("uint64"), ellipsoid=ellipsoid
+            )
 
         chunksizes = {dim: array.chunks[0] if hasattr(array, "chunks") else None}
         return cls(
