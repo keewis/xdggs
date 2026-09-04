@@ -942,6 +942,7 @@ class TestHealpixMocIndex:
 
         assert actual.keys() == expected.keys()
         xr.testing.assert_equal(actual["cell_ids"], expected["cell_ids"])
+        assert not actual["cell_ids"]._in_memory
 
     def test_create_variables_new(self):
         from healpix_geo.nested import RangeMOCIndex
@@ -961,6 +962,7 @@ class TestHealpixMocIndex:
 
         assert actual.keys() == expected.keys()
         xr.testing.assert_equal(actual["cell_ids"], expected["cell_ids"])
+        assert not actual["cell_ids"]._in_memory
 
     @pytest.mark.parametrize(
         "indexer",
