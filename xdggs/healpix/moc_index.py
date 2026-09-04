@@ -7,6 +7,7 @@ from healpix_geo.nested import RangeMOCIndex
 from xarray.core.indexes import IndexSelResult
 
 from xdggs.healpix.grid_info import HealpixInfo
+from xdggs.healpix.indexing_adapters import MocRangesIndexingAdapter
 from xdggs.utils import _extract_cell_id_variable
 
 try:
@@ -238,29 +239,10 @@ class HealpixMocIndex(xr.Index):
             attrs = None
             encoding = None
 
-        chunks = self._chunksizes[self._dim]
-        if chunks is not None:
-            import dask
-            import dask.array as da
-
-            chunk_arrays = [
-                da.from_delayed(
-                    dask.delayed(extract_chunk)(self._index, slice_),
-                    shape=(chunksize,),
-                    dtype="uint64",
-                    name=f"chunk-{index}",
-                    meta=np.array((), dtype="uint64"),
-                )
-                for index, (chunksize, slice_) in enumerate(
-                    construct_chunk_ranges(chunks, self._index.size)
-                )
-            ]
-            data = da.concatenate(chunk_arrays, axis=0)
-            var = xr.Variable(self._dim, data, attrs=attrs, encoding=encoding)
-        else:
-            var = xr.Variable(
-                self._dim, self._index.cell_ids(), attrs=attrs, encoding=encoding
-            )
+        data = MocRangesIndexingAdapter(
+            self._index, self._grid_info, self._name, dims=(self._dim,)
+        )
+        var = xr.Variable(self._dim, data, attrs=attrs, encoding=encoding)
 
         return {name: var}
 
